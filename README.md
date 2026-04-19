@@ -1,6 +1,10 @@
 # Car shortlist MVP (CarDekho take-home)
 
-**Screen recording (required):** _Add your Loom / Google Drive / YouTube (unlisted) link here before submit._
+**Deliverables (assignment)**
+
+- **Live app:** [https://cardekho-shortlist.onrender.com/](https://cardekho-shortlist.onrender.com/)
+- **Repo:** _Add your public GitHub repo URL before submit._
+- **Screen recording (required):** _Add your Loom / Google Drive / YouTube (unlisted) link here before submit._
 
 Synthetic data only — [CarDekho](https://www.cardekho.com/) is UX inspiration; no affiliation or scraping.
 
@@ -11,104 +15,94 @@ Prerequisites: Node 20+, npm, [Docker](https://docs.docker.com/get-docker/) (for
 ```bash
 cd cardekho-shortlist
 docker compose up -d
-# If port 5432 is already taken on your machine: CARDEKHO_PG_PORT=5433 docker compose up -d
-# and set DATABASE_URL (and optional test/E2E URLs) to use localhost:5433 — see .env.example.
+# Port 5432 busy? CARDEKHO_PG_PORT=5433 docker compose up -d — then use matching ports in .env (see .env.example).
 cp .env.example .env
-# After changing docker/postgres-init.sql, recreate the volume once: docker compose down -v && docker compose up -d
+# If you change docker/postgres-init.sql, reset the DB volume once: docker compose down -v && docker compose up -d
 npm ci
 npx prisma migrate deploy
 npx prisma db seed
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000). First `npm ci` on a slow network may exceed 2 minutes; **warm** `npm run dev` after deps + DB are ready should be fast.
+Open [http://localhost:3000](http://localhost:3000). First `npm ci` on a slow network may exceed 2 minutes; a second `npm run dev` after deps and DB are ready should be quick.
 
-**Production locally**
-
-```bash
-npm run build
-npm run start
-```
-
-`next start` respects `PORT` (e.g. Render).
+**Production locally:** `npm run build` then `npm run start` (`next start` uses `PORT`, e.g. on Render).
 
 **Tests**
 
 ```bash
-npm run test        # Vitest + Postgres cardekho_test (migrate reset + seed in globalSetup)
+npm run test        # Vitest against Postgres test DB (reset + seed in global setup)
 npm run build       # same typecheck as deploy
 ```
 
-**End-to-end (Playwright)** — uses Postgres database **`cardekho_e2e`**, **`AI_PROVIDER=mock`**, and dev server on **port 3333** (see `playwright.config.ts`). First time only, install browsers:
+**End-to-end (Playwright)** — Postgres database `cardekho_e2e`, `AI_PROVIDER=mock`, dev server on port 3333 (`playwright.config.ts`). Install browsers once: `npx playwright install chromium`, then `npm run test:e2e` (webServer runs migrate, seed, `next dev`).
 
-```bash
-npx playwright install chromium
-npm run test:e2e    # starts Next via webServer: migrate + seed + next dev
-```
+`npm run test:all` runs Vitest then Playwright. Full local gate: `npm run test && npm run build && npm run test:e2e`.
 
-`npm run test:all` runs Vitest then Playwright. For a full release gate locally: `npm run test && npm run build && npm run test:e2e` (E2E does not require a prior `build`; it runs against `next dev`).
+Outside CI, Playwright can reuse an existing server on 3333; if the wrong app is listening, free the port or set `CI=1` for a clean server.
 
-If **`reuseExistingServer`** is enabled outside CI and port **3333** is already taken by another app, tests may attach to the wrong server — free the port or set **`CI=1`** for a clean web server.
+Vitest uses `cardekho_test` and Playwright uses `cardekho_e2e`, so unit and E2E runs can overlap in separate terminals.
 
-**Parallel tip:** Vitest uses **`cardekho_test`**; Playwright uses **`cardekho_e2e`**, so `npm run test` and `npm run test:e2e` can be run in parallel in separate terminals if desired.
-
-Optional: `npm run db:prepare` runs `prisma migrate deploy && prisma db seed` (for local DB refresh; same steps run during Render **build** on Free tier).
+`npm run db:prepare` runs migrate deploy and seed (local refresh; same steps run on Render during build).
 
 ## Deploy (Render)
 
-- Set **`DATABASE_URL`** to **Postgres** (must match Prisma `provider = "postgresql"`). Use the **Internal** or **External** connection string from the Render Postgres dashboard; append **`?sslmode=require`** when Render’s docs / URL indicate SSL is required. It must be set **before** the first deploy so the **build** can reach the database.
-- **Free web services** do not support Render’s **`preDeployCommand`** (paid feature). This repo runs **`npm run db:prepare`** inside **`buildCommand`** after `npm ci` and before `npm run build` (see [`render.yaml`](render.yaml)). Seed uses **upsert by `slug`**, so re-running seed on each deploy is safe.
-- **Build:** `npm ci` (runs **`postinstall` → `prisma generate`**), then **`db:prepare`** (migrate + seed), then **`npm run build`**.
-- **Start:** `npm run start` (unchanged).
-- If **build** fails during migrate/seed, fix `DATABASE_URL` / SSL, or run `npx prisma migrate deploy && npx prisma db seed` from your machine against **production** `DATABASE_URL`, then redeploy.
-- **Paid instances:** If you upgrade, you can optionally move migrate/seed back to **`preDeployCommand`** and shorten **`buildCommand`** to `npm ci && npm run build`.
-- Local parity: use **`docker compose`** with the same Prisma migrations as production.
+- Production is the **Live app** link at the top. Build steps live in [`render.yaml`](render.yaml): `npm ci`, then `npm run db:prepare` (migrate + seed), then `npm run build`.
+- Set `DATABASE_URL` to Postgres (must match Prisma `provider = "postgresql"`). Use Internal or External URL from the Render Postgres dashboard; add `?sslmode=require` when SSL is required. Set it before the first deploy so the build can reach the DB.
+- Free web services have no `preDeployCommand` (paid on Render); this repo runs `db:prepare` inside `buildCommand` after `npm ci`. Seed upserts by `slug`, so repeating seed on deploy is safe.
+- Start command: `npm run start`. If build fails on migrate/seed, fix `DATABASE_URL` / SSL or run `npx prisma migrate deploy` and `npx prisma db seed` from your machine against production, then redeploy. On paid plans you can move migrate/seed to `preDeployCommand` and shorten `buildCommand` if you prefer.
+- Local: `docker compose` plus the same migrations as production.
 
 ## README questions (assignment)
 
 ### 1. What did you build and why? What did you deliberately cut?
 
-Built a **guided car shortlist**: hard filters (budget band, fuel, segment, seats, sunroof, automatic) hit **Prisma**; results are **deterministically** capped; **POST** re-ranks the **same candidate multiset** by a transparent JS score; **one** optional **AI insight** call (Groq or **mock**) grounded to returned car ids only.
+Helps a buyer go from “too many options” to a short ranked list: filters narrow cars, Search shows a capped browse order, Rank matches re-scores the same cars from that search (same query results, re-ranked in JavaScript), and one optional AI tip (Groq or mock) only uses cars in the current response.
 
-**Cut:** full **make / model / variant** normalization — data is a **flat `Car`** row with synthetic **`reviewSummary`** so filters + shortlist + AI fit a **2–3h** slice. No scraping, no real inventory.
+**Cut:** no full make/model/variant graph — a flat `Car` table with synthetic `reviewSummary` keeps the work in a 2–3 hour slice. No scraping or real inventory.
 
 ### 2. Tech stack and why?
 
-- **Next.js App Router** + TypeScript — fast full-stack in one repo, Route Handlers for GET/POST APIs.
-- **Prisma + PostgreSQL** (Docker locally, managed Postgres on Render) — one datasource provider for app, tests, and deploy.
-- **Zod** — shared prefs for GET query + POST JSON; empty query strings normalized.
-- **Vitest** — fast checks for prefs, scoring, GET/POST multiset parity, error paths (not ceremonial).
+Chosen to ship a typed full-stack MVP quickly:
+
+- Next.js App Router + TypeScript — UI and route handlers in one repo.
+- Prisma + PostgreSQL (Docker locally, managed Postgres on Render) — one database stack for app, tests, and deploy.
+- Zod — shared validation for GET query and POST JSON.
+- Vitest — quick checks on prefs, scoring, GET/POST parity, and errors (focused, not exhaustive).
 
 ### 3. AI vs manual — where tools helped most?
 
-**AI / editor assist** sped up **boilerplate** (Prisma schema, seed rows, README structure, Vitest wiring) and **Groq JSON** plumbing. **Manual** decisions: **determinism contract** (single `where`, shared `take`/`orderBy`), **soft vs hard prefs**, and **test matrix** (what must not regress).
+**Delegated to Cursor / editor assist:** most implementation — app and API code, database and test setup, README and doc edits from agreed plans, and other in-session repo work. (Not plan sign-off, manual QA, or Render go-live.)
+
+**Done manually:** reviewing the plan and suggesting fixes; exploratory manual testing; Render setup (service, database, env) and verifying the live app.
+
+**Where tools helped most:** faster code and repo iteration once goals and constraints were clear.
 
 ### 4. Where did tools get in the way?
 
-Risk of **over-building** if prompts follow a long plan literally; mitigated by shipping **vertical slice first**. Prisma **6 `prisma.config.ts`** + seed wiring had extra warnings vs older `package.json`-only flow.
+Easy to over-build if a long prompt is followed literally — mitigated by shipping the smallest useful version first, then tightening scope. Prisma 6’s separate config file added a bit more setup than older package-only seed flows.
 
 ### 5. If you had another 4 hours?
 
-- **Normalized schema** (Make → Model → Variant) + richer specs.
-- **Auth + saved shortlists** (server-side) instead of localStorage only.
-- **Rate limits** on LLM route (Playwright smoke is in-repo now).
-- **Explain scores** in UI (per-dimension breakdown).
+- Normalized schema (make / model / variant) and richer specs.
+- Auth and saved shortlists on the server instead of device-only storage.
+- Rate limits on the LLM route and clearer score explanations in the UI.
 
 ## Environment
 
-See [`.env.example`](.env.example). **`AI_PROVIDER=mock`** avoids Groq for review. For Groq, set **`AI_PROVIDER=groq`** and **`GROQ_API_KEY`**.
+See [`.env.example`](.env.example). `AI_PROVIDER=mock` avoids Groq for review. For Groq, set `AI_PROVIDER=groq` and `GROQ_API_KEY`.
 
 ## API
 
-- `GET /api/cars?...` — browse ordering; **`meta.count`**, **`meta.capped`**, **`meta.take`**.
-- `POST /api/shortlist` — same candidate pool as GET for identical prefs; **`cars[].score`**; **`aiInsight`** or `null` on LLM failure (HTTP **200**).
+- `GET /api/cars?...` — browse ordering; `meta.count`, `meta.capped`, `meta.take`.
+- `POST /api/shortlist` — same candidate pool as GET for identical prefs; `cars[].score`; `aiInsight` or `null` on LLM failure (HTTP 200).
 
 ## TypeScript / build notes
 
-- Run **`npm run build`** before deploy (same gate as CI/host).
-- **`skipLibCheck: true`** already in `tsconfig.json`.
-- Avoid **`typescript.ignoreBuildErrors`** unless emergency (would hide real bugs).
+- Run `npm run build` before deploy (same gate as CI/host).
+- `skipLibCheck: true` is already in `tsconfig.json`.
+- Avoid `typescript.ignoreBuildErrors` except in a real emergency.
 
 ## Recording hygiene
 
-Do not show real **`GROQ_API_KEY`** or production DB URLs on screen; use placeholders in `.env` for the recording segment where env is shown.
+Do not show real `GROQ_API_KEY` or production DB URLs on screen; use placeholders in `.env` when the recording shows env.
