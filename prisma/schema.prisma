@@ -8,8 +8,8 @@ datasource db {
 }
 
 model Car {
-  id              String  @id @default(cuid())
-  slug            String  @unique
+  id              String     @id @default(cuid())
+  slug            String     @unique
   name            String
   priceMinLakh    Float
   priceMaxLakh    Float
@@ -17,11 +17,34 @@ model Car {
   segment         String
   transmission    String
   seats           Int
-  sunroof         Boolean @default(false)
+  sunroof         Boolean    @default(false)
   safetyRating    Float?
   avgRating       Float?
   reviewSummary   String?
+  savedCars       SavedCar[]
 
   @@index([priceMinLakh, priceMaxLakh])
   @@index([segment])
+}
+
+model Session {
+  id        String     @id @default(uuid())
+  expiresAt DateTime?
+  createdAt DateTime   @default(now())
+  savedCars SavedCar[]
+}
+
+model SavedCar {
+  id        String   @id @default(cuid())
+  sessionId String
+  carId     String
+  snapshot  Json?
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+
+  session Session @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  car     Car     @relation(fields: [carId], references: [id], onDelete: Cascade)
+
+  @@unique([sessionId, carId])
+  @@index([sessionId])
 }
