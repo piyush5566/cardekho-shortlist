@@ -1,18 +1,20 @@
 -- CreateTable
 CREATE TABLE "Car" (
-    "id" TEXT NOT NULL PRIMARY KEY,
+    "id" TEXT NOT NULL,
     "slug" TEXT NOT NULL,
     "name" TEXT NOT NULL,
-    "priceMinLakh" REAL NOT NULL,
-    "priceMaxLakh" REAL NOT NULL,
+    "priceMinLakh" DOUBLE PRECISION NOT NULL,
+    "priceMaxLakh" DOUBLE PRECISION NOT NULL,
     "fuelType" TEXT NOT NULL,
     "segment" TEXT NOT NULL,
     "transmission" TEXT NOT NULL,
     "seats" INTEGER NOT NULL,
     "sunroof" BOOLEAN NOT NULL DEFAULT false,
-    "safetyRating" REAL,
-    "avgRating" REAL,
-    "reviewSummary" TEXT
+    "safetyRating" DOUBLE PRECISION,
+    "avgRating" DOUBLE PRECISION,
+    "reviewSummary" TEXT,
+
+    CONSTRAINT "Car_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateIndex

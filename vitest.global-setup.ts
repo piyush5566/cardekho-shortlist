@@ -1,23 +1,14 @@
 import { execSync } from "node:child_process";
-import path from "node:path";
-import fs from "node:fs";
+import { getTestDatabaseUrl } from "./vitest.test-db-url";
 
 export default async function globalSetup() {
-  const testDb = path.join(__dirname, "prisma", "test.db");
-  const url = `file:${testDb}`;
+  const url = getTestDatabaseUrl();
   process.env.DATABASE_URL = url;
   process.env.AI_PROVIDER = "mock";
-  if (fs.existsSync(testDb)) {
-    fs.unlinkSync(testDb);
-  }
-  execSync("npx prisma migrate deploy", {
+
+  execSync("npx prisma migrate reset --force", {
     stdio: "inherit",
     cwd: __dirname,
-    env: { ...process.env, DATABASE_URL: url },
-  });
-  execSync("npx tsx prisma/seed.ts", {
-    stdio: "inherit",
-    cwd: __dirname,
-    env: { ...process.env, DATABASE_URL: url },
+    env: { ...process.env, DATABASE_URL: url, AI_PROVIDER: "mock" },
   });
 }

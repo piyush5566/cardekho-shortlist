@@ -6,12 +6,15 @@ Synthetic data only — [CarDekho](https://www.cardekho.com/) is UX inspiration;
 
 ## Run (warm path, under ~2 minutes)
 
-Prerequisites: Node 20+, npm.
+Prerequisites: Node 20+, npm, [Docker](https://docs.docker.com/get-docker/) (for Postgres).
 
 ```bash
 cd cardekho-shortlist
+docker compose up -d
+# If port 5432 is already taken on your machine: CARDEKHO_PG_PORT=5433 docker compose up -d
+# and set DATABASE_URL (and optional test/E2E URLs) to use localhost:5433 — see .env.example.
 cp .env.example .env
-# default DATABASE_URL=file:./dev.db is fine for local SQLite
+# After changing docker/postgres-init.sql, recreate the volume once: docker compose down -v && docker compose up -d
 npm ci
 npx prisma migrate deploy
 npx prisma db seed
@@ -32,11 +35,11 @@ npm run start
 **Tests**
 
 ```bash
-npm run test        # Vitest + SQLite test.db (migrate + seed in globalSetup)
+npm run test        # Vitest + Postgres cardekho_test (migrate reset + seed in globalSetup)
 npm run build       # same typecheck as deploy
 ```
 
-**End-to-end (Playwright)** — uses its own SQLite file `e2e.db`, **`AI_PROVIDER=mock`**, and dev server on **port 3333** (see `playwright.config.ts`). First time only, install browsers:
+**End-to-end (Playwright)** — uses Postgres database **`cardekho_e2e`**, **`AI_PROVIDER=mock`**, and dev server on **port 3333** (see `playwright.config.ts`). First time only, install browsers:
 
 ```bash
 npx playwright install chromium
@@ -47,18 +50,19 @@ npm run test:e2e    # starts Next via webServer: migrate + seed + next dev
 
 If **`reuseExistingServer`** is enabled outside CI and port **3333** is already taken by another app, tests may attach to the wrong server — free the port or set **`CI=1`** for a clean web server.
 
-**Parallel tip:** Vitest uses `test.db`; Playwright uses `e2e.db`, so `npm run test` and `npm run test:e2e` can be run in parallel in separate terminals if desired.
+**Parallel tip:** Vitest uses **`cardekho_test`**; Playwright uses **`cardekho_e2e`**, so `npm run test` and `npm run test:e2e` can be run in parallel in separate terminals if desired.
 
 Optional: `npm run db:prepare` runs `prisma migrate deploy && prisma db seed` (for local DB refresh; same steps run during Render **build** on Free tier).
 
 ## Deploy (Render)
 
-- Set **`DATABASE_URL`** to Postgres (`sslmode=require` when required). It must be set **before** the first deploy so the **build** can reach the database.
+- Set **`DATABASE_URL`** to **Postgres** (must match Prisma `provider = "postgresql"`). Use the **Internal** or **External** connection string from the Render Postgres dashboard; append **`?sslmode=require`** when Render’s docs / URL indicate SSL is required. It must be set **before** the first deploy so the **build** can reach the database.
 - **Free web services** do not support Render’s **`preDeployCommand`** (paid feature). This repo runs **`npm run db:prepare`** inside **`buildCommand`** after `npm ci` and before `npm run build` (see [`render.yaml`](render.yaml)). Seed uses **upsert by `slug`**, so re-running seed on each deploy is safe.
 - **Build:** `npm ci` (runs **`postinstall` → `prisma generate`**), then **`db:prepare`** (migrate + seed), then **`npm run build`**.
 - **Start:** `npm run start` (unchanged).
 - If **build** fails during migrate/seed, fix `DATABASE_URL` / SSL, or run `npx prisma migrate deploy && npx prisma db seed` from your machine against **production** `DATABASE_URL`, then redeploy.
 - **Paid instances:** If you upgrade, you can optionally move migrate/seed back to **`preDeployCommand`** and shorten **`buildCommand`** to `npm ci && npm run build`.
+- Local parity: use **`docker compose`** with the same Prisma migrations as production.
 
 ## README questions (assignment)
 
@@ -71,7 +75,7 @@ Built a **guided car shortlist**: hard filters (budget band, fuel, segment, seat
 ### 2. Tech stack and why?
 
 - **Next.js App Router** + TypeScript — fast full-stack in one repo, Route Handlers for GET/POST APIs.
-- **Prisma + SQLite** locally (Postgres on Render) — quick schema + seed + deploy story.
+- **Prisma + PostgreSQL** (Docker locally, managed Postgres on Render) — one datasource provider for app, tests, and deploy.
 - **Zod** — shared prefs for GET query + POST JSON; empty query strings normalized.
 - **Vitest** — fast checks for prefs, scoring, GET/POST multiset parity, error paths (not ceremonial).
 
