@@ -1,6 +1,14 @@
 import type { Prisma } from "@prisma/client";
-import { PrismaClientKnownRequestError } from "@prisma/client/runtime/library";
 import { prisma } from "@/lib/prisma";
+
+function isPrismaUniqueViolation(e: unknown): boolean {
+  return (
+    typeof e === "object" &&
+    e !== null &&
+    "code" in e &&
+    (e as { code?: string }).code === "P2002"
+  );
+}
 import { carToJson } from "@/lib/saved-cars/map-car";
 
 export type SavedCarListItem = {
@@ -47,7 +55,7 @@ export async function addSavedCarForSession(
       },
     };
   } catch (e) {
-    if (e instanceof PrismaClientKnownRequestError && e.code === "P2002") {
+    if (isPrismaUniqueViolation(e)) {
       return { ok: false, reason: "duplicate" };
     }
     throw e;
