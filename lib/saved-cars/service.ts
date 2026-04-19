@@ -1,4 +1,5 @@
 import type { Prisma } from "@prisma/client";
+import { PrismaClientKnownRequestError } from "@prisma/client/runtime/library";
 import { prisma } from "@/lib/prisma";
 import { carToJson } from "@/lib/saved-cars/map-car";
 
@@ -32,24 +33,25 @@ export async function addSavedCarForSession(
   const car = await prisma.car.findUnique({ where: { id: carId } });
   if (!car) return { ok: false, reason: "not_found" };
 
-  const existing = await prisma.savedCar.findUnique({
-    where: { sessionId_carId: { sessionId, carId } },
-  });
-  if (existing) return { ok: false, reason: "duplicate" };
-
-  const created = await prisma.savedCar.create({
-    data: { sessionId, carId },
-    include: { car: true },
-  });
-
-  return {
-    ok: true,
-    item: {
-      id: created.id,
-      createdAt: created.createdAt.toISOString(),
-      car: carToJson(created.car),
-    },
-  };
+  try {
+    const created = await prisma.savedCar.create({
+      data: { sessionId, carId },
+      include: { car: true },
+    });
+    return {
+      ok: true,
+      item: {
+        id: created.id,
+        createdAt: created.createdAt.toISOString(),
+        car: carToJson(created.car),
+      },
+    };
+  } catch (e) {
+    if (e instanceof PrismaClientKnownRequestError && e.code === "P2002") {
+      return { ok: false, reason: "duplicate" };
+    }
+    throw e;
+  }
 }
 
 export async function removeSavedCarForSession(

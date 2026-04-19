@@ -72,6 +72,7 @@ test.describe.serial("Server shortlist", () => {
     }).toPass({ timeout: 25_000 });
 
     const saveBtn = page.locator('[data-testid^="car-shortlist-"]').first();
+    await expect(saveBtn).toBeEnabled({ timeout: 20_000 });
     await saveBtn.click();
     await expect(saveBtn).toHaveAttribute("aria-pressed", "true", { timeout: 15_000 });
 
@@ -97,6 +98,7 @@ test.describe.serial("Server shortlist", () => {
     }).toPass({ timeout: 25_000 });
 
     const saveBtn = page.locator('[data-testid^="car-shortlist-"]').first();
+    await expect(saveBtn).toBeEnabled({ timeout: 20_000 });
     await saveBtn.click();
     await expect(saveBtn).toHaveAttribute("aria-pressed", "true", { timeout: 15_000 });
 
@@ -104,7 +106,9 @@ test.describe.serial("Server shortlist", () => {
     const carId = rowTestId?.replace("car-shortlist-", "") ?? "";
     await expect(page.getByTestId(`shortlist-row-${carId}`)).toBeVisible({ timeout: 15_000 });
 
-    await page.getByTestId(`shortlist-remove-${carId}`).click();
+    const removeBtn = page.getByTestId(`shortlist-remove-${carId}`);
+    await expect(removeBtn).toBeEnabled({ timeout: 10_000 });
+    await removeBtn.click();
     await expect(page.getByTestId(`shortlist-row-${carId}`)).toHaveCount(0, { timeout: 15_000 });
     await expect(page.locator(`[data-testid="car-shortlist-${carId}"]`)).toHaveAttribute(
       "aria-pressed",

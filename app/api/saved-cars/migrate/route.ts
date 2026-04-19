@@ -7,7 +7,6 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function POST(req: NextRequest) {
-  const { session, setSessionCookie } = await getOrCreateSession(req);
   let body: unknown;
   try {
     body = await req.json();
@@ -22,6 +21,7 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  const { session, setSessionCookie } = await getOrCreateSession(req);
   const summary = await migrateSavedCarsForSession(session.id, parsed.data.items);
   const res = NextResponse.json(summary);
   if (setSessionCookie) applySessionCookie(res, setSessionCookie);

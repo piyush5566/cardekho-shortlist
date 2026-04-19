@@ -8,6 +8,8 @@ type ResultsSectionProps = {
   meta: { count: number; take: number; capped: boolean } | null;
   loadingSearch: boolean;
   error: string | null;
+  /** Shortlist GET/bootstrap in flight — block save/remove until IDs are known. */
+  shortlistHydrating: boolean;
   isSaved: (carId: string) => boolean;
   onToggleSave: (car: CarJson) => void;
 };
@@ -18,6 +20,7 @@ export function ResultsSection({
   meta,
   loadingSearch,
   error,
+  shortlistHydrating,
   isSaved,
   onToggleSave,
 }: ResultsSectionProps) {
@@ -78,8 +81,10 @@ export function ResultsSection({
                     type="button"
                     data-testid={`car-shortlist-${c.id}`}
                     aria-pressed={saved}
+                    aria-busy={shortlistHydrating}
+                    disabled={shortlistHydrating}
                     aria-label={saved ? `Remove ${c.name} from shortlist` : `Save ${c.name} to shortlist`}
-                    className={`inline-flex min-h-11 min-w-[7.5rem] items-center justify-center rounded-lg border px-3 text-sm font-medium transition-colors focus-visible:ring-2 focus-visible:ring-ring ${
+                    className={`inline-flex min-h-11 min-w-[7.5rem] items-center justify-center rounded-lg border px-3 text-sm font-medium transition-colors focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 ${
                       saved
                         ? "border-accent/40 bg-accent/10 text-accent hover:bg-accent/15"
                         : "border-border bg-background hover:bg-muted"

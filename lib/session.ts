@@ -7,6 +7,9 @@ import { prisma } from "@/lib/prisma";
 
 export const SESSION_COOKIE = "cardekho_session";
 
+/** Shared TTL for httpOnly cookie `maxAge` and `Session.expiresAt` on create. */
+export const SESSION_MAX_AGE_SECONDS = 60 * 60 * 24 * 400;
+
 export function isSecureCookieRequest(req: NextRequest): boolean {
   const forwarded = req.headers.get("x-forwarded-proto");
   if (forwarded) return forwarded.split(",")[0]?.trim() === "https";
@@ -14,6 +17,10 @@ export function isSecureCookieRequest(req: NextRequest): boolean {
 }
 
 export type SessionCookieToSet = { value: string; secure: boolean };
+
+function sessionExpiresAtFromNow(): Date {
+  return new Date(Date.now() + SESSION_MAX_AGE_SECONDS * 1000);
+}
 
 /**
  * Resolves anonymous session from httpOnly cookie, or creates a row + instructs caller to set cookie.
@@ -27,12 +34,19 @@ export async function getOrCreateSession(
   if (cookieVal) {
     const existing = await prisma.session.findUnique({ where: { id: cookieVal } });
     if (existing) {
-      return { session: existing, setSessionCookie: null };
+      const expired =
+        existing.expiresAt != null && existing.expiresAt.getTime() <= Date.now();
+      if (expired) {
+        await prisma.session.delete({ where: { id: cookieVal } }).catch(() => undefined);
+      } else {
+        return { session: existing, setSessionCookie: null };
+      }
     }
   }
 
   const id = randomUUID();
-  const session = await prisma.session.create({ data: { id } });
+  const expiresAt = sessionExpiresAtFromNow();
+  const session = await prisma.session.create({ data: { id, expiresAt } });
   return {
     session,
     setSessionCookie: { value: id, secure: isSecureCookieRequest(req) },
@@ -45,6 +59,6 @@ export function applySessionCookie(res: NextResponse, cookie: SessionCookieToSet
     sameSite: "lax",
     path: "/",
     secure: cookie.secure,
-    maxAge: 60 * 60 * 24 * 400,
+    maxAge: SESSION_MAX_AGE_SECONDS,
   });
 }

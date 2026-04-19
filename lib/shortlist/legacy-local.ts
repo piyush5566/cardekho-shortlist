@@ -18,11 +18,19 @@ export function loadLegacyShortlistIds(): string[] {
 
 export function markShortlistMigratedAndClearLegacy() {
   if (typeof window === "undefined") return;
-  localStorage.setItem(SHORTLIST_MIGRATED_FLAG, "1");
-  localStorage.removeItem(LEGACY_SHORTLIST_STORAGE_KEY);
+  try {
+    localStorage.setItem(SHORTLIST_MIGRATED_FLAG, "1");
+    localStorage.removeItem(LEGACY_SHORTLIST_STORAGE_KEY);
+  } catch {
+    /* ignore quota / private mode */
+  }
 }
 
 export function hasShortlistMigrationFlag(): boolean {
   if (typeof window === "undefined") return true;
-  return localStorage.getItem(SHORTLIST_MIGRATED_FLAG) === "1";
+  try {
+    return localStorage.getItem(SHORTLIST_MIGRATED_FLAG) === "1";
+  } catch {
+    return true;
+  }
 }

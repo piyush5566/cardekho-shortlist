@@ -158,6 +158,7 @@ export default function Home() {
 
   const handleSaveToggle = useCallback(
     async (car: CarJson) => {
+      if (shortlist.loading) return;
       if (shortlist.isSaved(car.id)) {
         await shortlist.removeByCarId(car.id, car.name);
       } else {
@@ -212,6 +213,7 @@ export default function Home() {
               meta={meta}
               loadingSearch={loadingSearch}
               error={error}
+              shortlistHydrating={shortlist.loading}
               isSaved={shortlist.isSaved}
               onToggleSave={handleSaveToggle}
             />

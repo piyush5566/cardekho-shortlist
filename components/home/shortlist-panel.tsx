@@ -33,7 +33,8 @@ export function ShortlistPanel({
         {error && (
           <button
             type="button"
-            className="shrink-0 rounded-md border border-border px-2 py-1 text-xs font-medium hover:bg-muted"
+            disabled={loading}
+            className="shrink-0 rounded-md border border-border px-2 py-1 text-xs font-medium hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
             onClick={() => void onRetry()}
           >
             Retry
@@ -85,7 +86,8 @@ export function ShortlistPanel({
               <button
                 type="button"
                 data-testid={`shortlist-remove-${row.car.id}`}
-                className="inline-flex min-h-10 shrink-0 items-center justify-center rounded-md border border-destructive/40 px-3 text-sm font-medium text-destructive hover:bg-destructive/10"
+                disabled={loading}
+                className="inline-flex min-h-10 shrink-0 items-center justify-center rounded-md border border-destructive/40 px-3 text-sm font-medium text-destructive hover:bg-destructive/10 disabled:cursor-not-allowed disabled:opacity-50"
                 onClick={() => void onRemove(row.car.id, row.car.name)}
               >
                 Remove

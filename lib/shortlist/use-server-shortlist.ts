@@ -24,6 +24,10 @@ async function fetchSavedCars(): Promise<SavedCarListItem[]> {
   return data.items ?? [];
 }
 
+function sortByCreatedAt(a: SavedCarListItem, b: SavedCarListItem): number {
+  return a.createdAt.localeCompare(b.createdAt);
+}
+
 export function useServerShortlist(onServerConfirmed: (message: string) => void) {
   const [state, setState] = useState<ShortlistState>({
     items: [],
@@ -101,9 +105,9 @@ export function useServerShortlist(onServerConfirmed: (message: string) => void)
   const addCar = useCallback(
     async (car: CarJson) => {
       if (savedIds.has(car.id)) return;
-      const prev = itemsRef.current;
+      const optimisticId = `optimistic-${car.id}`;
       const optimistic: SavedCarListItem = {
-        id: `optimistic-${car.id}`,
+        id: optimisticId,
         createdAt: new Date().toISOString(),
         car,
       };
@@ -126,7 +130,11 @@ export function useServerShortlist(onServerConfirmed: (message: string) => void)
         }));
         onServerConfirmed(`Saved ${car.name} to your shortlist.`);
       } catch (e) {
-        setState((s) => ({ ...s, items: prev, error: e instanceof Error ? e.message : "Save failed" }));
+        setState((s) => ({
+          ...s,
+          items: s.items.filter((r) => r.id !== optimisticId && !(r.id.startsWith("optimistic-") && r.car.id === car.id)),
+          error: e instanceof Error ? e.message : "Save failed",
+        }));
         onServerConfirmed("Could not save to shortlist. Changes were reverted.");
       }
     },
@@ -135,7 +143,7 @@ export function useServerShortlist(onServerConfirmed: (message: string) => void)
 
   const removeByCarId = useCallback(
     async (carId: string, displayName: string) => {
-      const prev = itemsRef.current;
+      const removed = itemsRef.current.find((r) => r.car.id === carId);
       setState((s) => ({
         ...s,
         items: s.items.filter((row) => row.car.id !== carId),
@@ -152,7 +160,14 @@ export function useServerShortlist(onServerConfirmed: (message: string) => void)
         }
         onServerConfirmed(`Removed ${displayName} from your shortlist.`);
       } catch (e) {
-        setState((s) => ({ ...s, items: prev, error: e instanceof Error ? e.message : "Remove failed" }));
+        setState((s) => ({
+          ...s,
+          items:
+            removed && !s.items.some((r) => r.id === removed.id)
+              ? [...s.items, removed].sort(sortByCreatedAt)
+              : s.items,
+          error: e instanceof Error ? e.message : "Remove failed",
+        }));
         onServerConfirmed("Could not remove from shortlist. Changes were reverted.");
       }
     },
