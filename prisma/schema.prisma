@@ -1,0 +1,27 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Car {
+  id              String  @id @default(cuid())
+  slug            String  @unique
+  name            String
+  priceMinLakh    Float
+  priceMaxLakh    Float
+  fuelType        String
+  segment         String
+  transmission    String
+  seats           Int
+  sunroof         Boolean @default(false)
+  safetyRating    Float?
+  avgRating       Float?
+  reviewSummary   String?
+
+  @@index([priceMinLakh, priceMaxLakh])
+  @@index([segment])
+}
