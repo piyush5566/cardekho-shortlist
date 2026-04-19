@@ -3,8 +3,7 @@ services:
     name: cardekho-shortlist
     runtime: node
     plan: free
-    buildCommand: npm ci && npm run build
-    preDeployCommand: npx prisma migrate deploy && npx prisma db seed
+    buildCommand: npm ci && npm run db:prepare && npm run build
     startCommand: npm run start
     envVars:
       - key: NODE_VERSION

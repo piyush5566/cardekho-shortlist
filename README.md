@@ -49,14 +49,16 @@ If **`reuseExistingServer`** is enabled outside CI and port **3333** is already 
 
 **Parallel tip:** Vitest uses `test.db`; Playwright uses `e2e.db`, so `npm run test` and `npm run test:e2e` can be run in parallel in separate terminals if desired.
 
-Optional: `npm run db:prepare` runs `prisma migrate deploy && prisma db seed` (same as Render pre-deploy, for manual DB refresh).
+Optional: `npm run db:prepare` runs `prisma migrate deploy && prisma db seed` (for local DB refresh; same steps run during Render **build** on Free tier).
 
 ## Deploy (Render)
 
-- Set **`DATABASE_URL`** to Postgres (`sslmode=require` when required).
-- **Pre-Deploy:** `npx prisma migrate deploy && npx prisma db seed` (see `render.yaml` example).
-- **Build:** `npm ci` (runs **`postinstall` → `prisma generate`**) then `npm run build`.
-- If Pre-Deploy fails, run migrate + seed from your machine against **production** `DATABASE_URL`, then redeploy.
+- Set **`DATABASE_URL`** to Postgres (`sslmode=require` when required). It must be set **before** the first deploy so the **build** can reach the database.
+- **Free web services** do not support Render’s **`preDeployCommand`** (paid feature). This repo runs **`npm run db:prepare`** inside **`buildCommand`** after `npm ci` and before `npm run build` (see [`render.yaml`](render.yaml)). Seed uses **upsert by `slug`**, so re-running seed on each deploy is safe.
+- **Build:** `npm ci` (runs **`postinstall` → `prisma generate`**), then **`db:prepare`** (migrate + seed), then **`npm run build`**.
+- **Start:** `npm run start` (unchanged).
+- If **build** fails during migrate/seed, fix `DATABASE_URL` / SSL, or run `npx prisma migrate deploy && npx prisma db seed` from your machine against **production** `DATABASE_URL`, then redeploy.
+- **Paid instances:** If you upgrade, you can optionally move migrate/seed back to **`preDeployCommand`** and shorten **`buildCommand`** to `npm ci && npm run build`.
 
 ## README questions (assignment)
 
