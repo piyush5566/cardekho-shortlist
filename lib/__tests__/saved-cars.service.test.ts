@@ -24,8 +24,11 @@ describe("saved-cars service", () => {
 
   afterEach(async () => {
     if (!sessionId) return;
-    await prisma.session.delete({ where: { id: sessionId } }).catch(() => undefined);
-    sessionId = undefined;
+    try {
+      await prisma.session.delete({ where: { id: sessionId } });
+    } finally {
+      sessionId = undefined;
+    }
   });
 
   function sid(): string {
