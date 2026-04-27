@@ -50,9 +50,7 @@ test.describe("Home", () => {
     await expect(toggle).toHaveAttribute("aria-checked", String(before));
     await toggle.click();
     await expect(async () => {
-      const after = await page.evaluate(() =>
-        document.documentElement.classList.contains("dark"),
-      );
+      const after = await page.evaluate(() => document.documentElement.classList.contains("dark"));
       expect(after).toBe(!before);
     }).toPass({ timeout: 5000 });
     await page.reload();
@@ -63,15 +61,59 @@ test.describe("Home", () => {
       expect(persisted).toBe(!before);
     }).toPass({ timeout: 10_000 });
   });
+});
 
-  test("shortlist checkbox persists after reload", async ({ page }) => {
+/** Serial: first navigation establishes session cookie before parallel tabs would race. */
+test.describe.serial("Server shortlist", () => {
+  test("save shows in panel and survives reload", async ({ page }) => {
     await page.goto("/");
     await expect(async () => {
       expect(await page.locator('[data-testid^="car-shortlist-"]').count()).toBeGreaterThan(0);
     }).toPass({ timeout: 25_000 });
-    const first = page.locator('[data-testid^="car-shortlist-"]').first();
-    await first.check();
+
+    const saveBtn = page.locator('[data-testid^="car-shortlist-"]').first();
+    await expect(saveBtn).toBeEnabled({ timeout: 20_000 });
+    await saveBtn.click();
+    await expect(saveBtn).toHaveAttribute("aria-pressed", "true", { timeout: 15_000 });
+
+    const rowTestId = await saveBtn.getAttribute("data-testid");
+    const carId = rowTestId?.replace("car-shortlist-", "") ?? "";
+    expect(carId.length).toBeGreaterThan(0);
+
+    await expect(page.getByTestId(`shortlist-row-${carId}`)).toBeVisible({ timeout: 15_000 });
+
     await page.reload();
-    await expect(first).toBeChecked({ timeout: 15_000 });
+    await expect(page.getByTestId(`shortlist-row-${carId}`)).toBeVisible({ timeout: 20_000 });
+    await expect(page.locator(`[data-testid="car-shortlist-${carId}"]`)).toHaveAttribute(
+      "aria-pressed",
+      "true",
+      { timeout: 15_000 },
+    );
+  });
+
+  test("remove clears row from panel", async ({ page }) => {
+    await page.goto("/");
+    await expect(async () => {
+      expect(await page.locator('[data-testid^="car-shortlist-"]').count()).toBeGreaterThan(0);
+    }).toPass({ timeout: 25_000 });
+
+    const saveBtn = page.locator('[data-testid^="car-shortlist-"]').first();
+    await expect(saveBtn).toBeEnabled({ timeout: 20_000 });
+    await saveBtn.click();
+    await expect(saveBtn).toHaveAttribute("aria-pressed", "true", { timeout: 15_000 });
+
+    const rowTestId = await saveBtn.getAttribute("data-testid");
+    const carId = rowTestId?.replace("car-shortlist-", "") ?? "";
+    await expect(page.getByTestId(`shortlist-row-${carId}`)).toBeVisible({ timeout: 15_000 });
+
+    const removeBtn = page.getByTestId(`shortlist-remove-${carId}`);
+    await expect(removeBtn).toBeEnabled({ timeout: 10_000 });
+    await removeBtn.click();
+    await expect(page.getByTestId(`shortlist-row-${carId}`)).toHaveCount(0, { timeout: 15_000 });
+    await expect(page.locator(`[data-testid="car-shortlist-${carId}"]`)).toHaveAttribute(
+      "aria-pressed",
+      "false",
+      { timeout: 15_000 },
+    );
   });
 });

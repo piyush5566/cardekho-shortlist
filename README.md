@@ -8,6 +8,20 @@
 
 Synthetic data only — [CarDekho](https://www.cardekho.com/) is UX inspiration; no affiliation or scraping.
 
+## Design source (Figma)
+
+- **File:** [CarDekhoAssignment](https://www.figma.com/design/GsXqZsaYNdRUxfngckwCuH/CarDekhoAssignment?node-id=0-1) (`GsXqZsaYNdRUxfngckwCuH`).
+- **Desktop v1 (canonical frame):** [Open in Figma — Desktop v1](https://www.figma.com/design/GsXqZsaYNdRUxfngckwCuH/CarDekhoAssignment?node-id=10-2) — two-column `lg+` (main + shortlist), header, preferences, results with **Save** vs **Saved** row examples, shortlist rows with **Remove**, optional AI tips card, annotation for empty copy (no storage keys).
+- **Mobile v1 (canonical frame):** [Open in Figma — Mobile v1](https://www.figma.com/design/GsXqZsaYNdRUxfngckwCuH/CarDekhoAssignment?node-id=11-2) — single column, shortlist **stacked** under results (bottom sheet deferred).
+- **Dark mode:** light frames are the reference; dark mode follows existing CSS variables (no ad hoc dark palette in components).
+
+**Phase 1 checklist (design)**
+
+- [x] Desktop v1 shows at least one shortlist row with remove.
+- [x] Empty shortlist guidance does not show raw localStorage keys (annotated on frame; app copy matches).
+- [x] Save vs saved states are visually distinct on the results rows.
+- [x] Node URLs for Desktop v1 and Mobile v1 recorded above.
+
 ## Run (warm path, under ~2 minutes)
 
 Prerequisites: Node 20+, npm, [Docker](https://docs.docker.com/get-docker/) (for Postgres).
@@ -85,17 +99,30 @@ Easy to over-build if a long prompt is followed literally — mitigated by shipp
 ### 5. If you had another 4 hours?
 
 - Normalized schema (make / model / variant) and richer specs.
-- Auth and saved shortlists on the server instead of device-only storage.
+- OAuth or email login instead of anonymous sessions; named lists.
 - Rate limits on the LLM route and clearer score explanations in the UI.
 
 ## Environment
 
 See [`.env.example`](.env.example). `AI_PROVIDER=mock` avoids Groq for review. For Groq, set `AI_PROVIDER=groq` and `GROQ_API_KEY`.
 
+**Shortlist session cookie**
+
+- Anonymous sessions use an **opaque UUID** in an **httpOnly** cookie named `cardekho_session` (`SameSite=Lax`, `Path=/`).
+- **`Secure` is set only on HTTPS** (e.g. Render). On `http://localhost` the cookie is **not** marked Secure so dev browsers accept it.
+- **`SESSION_SECRET` is not required** unless you add **signed** cookies or JWTs; keep it out of `.env` until then.
+
 ## API
 
 - `GET /api/cars?...` — browse ordering; `meta.count`, `meta.capped`, `meta.take`.
 - `POST /api/shortlist` — same candidate pool as GET for identical prefs; `cars[].score`; `aiInsight` or `null` on LLM failure (HTTP 200).
+
+**Saved cars (server shortlist)**
+
+- `GET /api/saved-cars` — `{ items: [{ id, createdAt, car }] }`. Creates a session when no cookie is present (**always HTTP 200** with `items: []` after minting a session).
+- `POST /api/saved-cars` — body `{ carId }` adds a single car; **404** if the id is unknown; **409** if already saved for the session.
+- `POST /api/saved-cars/migrate` — body `{ items: [{ carId, snapshot? }] }` batch-upserts known cars; **skips** unknown `carId` values and returns **`{ applied, skippedIds }`** with HTTP **200**; work is wrapped in **`prisma.$transaction`**.
+- `DELETE /api/saved-cars/:carId` — removes that car for the session (`removed` boolean in JSON). The literal `migrate` segment is **not** a car id.
 
 ## TypeScript / build notes
 
