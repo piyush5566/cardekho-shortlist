@@ -1,5 +1,6 @@
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { MAX_MIGRATE_SAVED_CARS_BATCH } from "@/lib/saved-cars/schemas";
 
 function isPrismaUniqueViolation(e: unknown): boolean {
   return (
@@ -78,6 +79,11 @@ export async function migrateSavedCarsForSession(
 ): Promise<{ applied: number; skippedIds: string[] }> {
   if (items.length === 0) {
     return { applied: 0, skippedIds: [] };
+  }
+  if (items.length > MAX_MIGRATE_SAVED_CARS_BATCH) {
+    throw new RangeError(
+      `Saved cars migrate batch exceeds max size of ${MAX_MIGRATE_SAVED_CARS_BATCH}`,
+    );
   }
 
   const inputIds = items.map((i) => i.carId);

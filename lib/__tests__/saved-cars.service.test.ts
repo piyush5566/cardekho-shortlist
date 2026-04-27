@@ -6,6 +6,7 @@ import {
   migrateSavedCarsForSession,
   removeSavedCarForSession,
 } from "@/lib/saved-cars/service";
+import { MAX_MIGRATE_SAVED_CARS_BATCH } from "@/lib/saved-cars/schemas";
 
 describe("saved-cars service", () => {
   let sessionId: string | undefined;
@@ -87,5 +88,12 @@ describe("saved-cars service", () => {
     expect(s2.skippedIds).toEqual([]);
     const list = await listSavedCarsForSession(sid());
     expect(list).toHaveLength(2);
+  });
+
+  it("migrate rejects oversized batches defensively", async () => {
+    const oversizedItems = Array.from({ length: MAX_MIGRATE_SAVED_CARS_BATCH + 1 }, () => ({
+      carId: carA.id,
+    }));
+    await expect(migrateSavedCarsForSession(sid(), oversizedItems)).rejects.toThrow(RangeError);
   });
 });
